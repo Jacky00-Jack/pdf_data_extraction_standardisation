@@ -1,0 +1,64 @@
+import pandas as pd
+import fitz  # install PyMuPDF
+import re
+
+def extract_text_from_pdf(pdf_path):
+    text = ""
+
+    pdf_document = fitz.open(pdf_path)
+    for page_number in range(pdf_document.page_count):
+        page = pdf_document.load_page(page_number)
+        text += page.get_text("text")
+
+    pdf_document.close()
+    
+    return text
+
+
+switch_ach = input('Run for ACH? (y/n)')
+
+while switch_ach == 'y':
+    file_name_ach = input('ACH File Name: ')
+    file_path_ach = r'C:\Users\ADCCYW9\OneDrive - BNY Mellon\Documents\Stuff I need for Operations\Automation Files\CDS TO FED PDF Conversion\ACH\\'
+    file_name_ach_pdf = file_path_ach + file_name_ach + '.pdf'
+    file_name_ach_txt = file_path_ach + file_name_ach + '.txt'
+    file_name_ach_xlsx = file_path_ach + file_name_ach + '.xlsx'
+    #pdf as text
+    pdf_text_ach = extract_text_from_pdf(file_name_ach_pdf)
+    pdf_text_clean_ach = re.sub(r'\s{2,}', '__', pdf_text_ach)
+    file_df_ach = pd.DataFrame([x.split('__') for x in pdf_text_clean_ach.split('\n')])
+    file_df_ach.columns = ['Trans Detail', 'Amount', 'Drop']
+    file_df_ach = file_df_ach[['Trans Detail', 'Amount']]
+    file_df_ach['Amount'] = file_df_ach['Amount'].str.replace(',', '')
+    file_df_ach['Amount'] = file_df_ach['Amount'].apply(pd.to_numeric, errors = 'coerce')
+    file_df_ach = file_df_ach[file_df_ach['Amount'].notna()]
+    remove_tran_detail = ['Deposits', 'ACH Credits', 'All Other Credits', 'Checks', 'ACH Debits', 'All Other Debits']
+    file_df_ach = file_df_ach[~file_df_ach['Trans Detail'].isin(remove_tran_detail)]
+
+    print(file_df_ach)
+
+    file_df_ach.to_excel(file_name_ach_xlsx, index = False)
+
+    switch_ach = input('Keep running?(y/n)')
+
+switch_mob = 'y'
+
+while switch_mob == 'y':
+    file_name_mob = input('Mobius File Name: ')
+    file_path_mob = r'C:\Users\ADCCYW9\OneDrive - BNY Mellon\Documents\Stuff I need for Operations\Automation Files\CDS TO FED PDF Conversion\Mobius\\'
+    file_name_mob_pdf = file_path_mob + file_name_mob + '.pdf'
+    file_name_mob_xlsx = file_path_mob + file_name_mob + '.xlsx'
+    file_name_mob_txt = file_path_mob + file_name_mob + '.txt'
+
+    pdf_text_mob = extract_text_from_pdf(file_name_mob_pdf)
+    file_df_mob = pd.DataFrame([x.split('   ') for x in pdf_text_mob.split('\n')])
+
+    print(file_df_mob)
+
+    file_df_mob.to_excel(file_name_mob_xlsx, header = False, index = False)
+
+    switch_mob = input('Keep running?(y/n)')
+    # Open a file in write mode
+    with open(file_name_mob_txt, 'w') as file:
+        # Write the string to the file
+        file.write(pdf_text_mob)
